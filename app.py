@@ -6,11 +6,17 @@ from datetime import datetime, timedelta
 # Configurazione pagina
 st.set_page_config(
     page_title="Il Maniscalco - Podologia Bovina",
-    page_icon="logo.png"
+    page_icon="logo icona.png"
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
+st.markdown("""
+<head>
+    <meta property="og:image" content="https://ilmaniscalco.onrender.com/imgapp.png">
+    <meta property="og:title" content="Il Maniscalco - Podologia Bovina">
+    <meta property="og:description" content="Gestione professionale trattamenti podologici per bovini">
+</head>
+""", unsafe_allow_html=True)
 DB_PATH = "database.db"
 
 def init_database():
