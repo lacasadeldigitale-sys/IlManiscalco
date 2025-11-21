@@ -1,12 +1,20 @@
-import gradio as gr
+import streamlit as st
 import sqlite3
 import pandas as pd
 from datetime import datetime, timedelta
 
+# Configurazione pagina
+st.set_page_config(
+    page_title="Il Maniscalco - Podologia Bovina",
+    page_icon="🐄",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 DB_PATH = "database.db"
 
 def init_database():
-    """Inizializza il database per bovini"""
+    """Inizializza il database"""
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     
@@ -18,21 +26,27 @@ def init_database():
             azienda TEXT,
             razza TEXT,
             eta INTEGER,
-            stadio_lattazione TEXT,
+            stato_fisiologico TEXT,
             data_inserimento TEXT,
             note TEXT
         )
     ''')
     
-    # Tabella trattamenti - SPECIALIZZATA PER BOVINI
+    # Tabella trattamenti - SEMPLIFICATA
     c.execute('''
         CREATE TABLE IF NOT EXISTS trattamenti (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             data TEXT NOT NULL,
             bovino_id TEXT NOT NULL,
-            tipo_trattamento TEXT,
-            condizione_zoccolo INTEGER,
-            lesioni_riscontrate TEXT,
+            tipo_attivo TEXT,
+            sottotipo_trattamento TEXT,
+            
+            -- Zoccoli specifici SEMPLIFICATI
+            zoccolo_ad TEXT,
+            zoccolo_as TEXT,
+            zoccolo_pd TEXT,
+            zoccolo_ps TEXT,
+            
             materiali TEXT,
             durata_minuti INTEGER,
             costo REAL,
@@ -42,62 +56,27 @@ def init_database():
         )
     ''')
     
-    # Tabella aziende zootecniche - COMPLETATA
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS aziende (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            tipo TEXT,
-            telefono TEXT,
-            email TEXT,
-            indirizzo TEXT,
-            capienza INTEGER,
-            specializzazione TEXT,
-            data_inserimento TEXT,
-            note TEXT
-        )
-    ''')
-    
-    # Dati di esempio per bovini
+    # Dati esempio
     c.execute("SELECT COUNT(*) FROM bovini")
     if c.fetchone()[0] == 0:
         c.execute('''
-            INSERT INTO bovini (id, nome, azienda, razza, eta, stadio_lattazione, data_inserimento, note)
+            INSERT INTO bovini (id, nome, azienda, razza, eta, stato_fisiologico, data_inserimento, note)
             VALUES 
-            ('BOV001', 'Margherita', 'Az. Agricola Rossi', 'Frisona', 4, 'Picco lattazione', datetime('now'), 'Produttiva, zoccoli sani'),
-            ('BOV002', 'Stella', 'Az. Agricola Bianchi', 'Bruna Alpina', 5, 'Fine lattazione', datetime('now'), 'Tendenza a dermatite digitale'),
-            ('BOV003', 'Bianca', 'Az. Agricola Verdi', 'Pezzata Rossa', 3, 'Inizio lattazione', datetime('now'), 'Zoccoli fragili, controlli frequenti')
-        ''')
-        
-        # Trattamenti di esempio per bovini
-        c.execute('''
-            INSERT INTO trattamenti (data, bovino_id, tipo_trattamento, condizione_zoccolo, lesioni_riscontrate, materiali, durata_minuti, costo, note, prossimo_controllo)
-            VALUES 
-            (datetime('now', '-15 days'), 'BOV001', 'Trim correttivo', 4, 'Nessuna', 'Tosa zoccoli, lima', 25, 35.0, 'Zoccoli in ottime condizioni', datetime('now', '+60 days')),
-            (datetime('now', '-8 days'), 'BOV002', 'Trattamento dermatite', 2, 'Dermatite digitale', 'Disinfettante, bendaggio', 40, 50.0, 'Applicato antibatterico', datetime('now', '+30 days')),
-            (datetime('now', '-3 days'), 'BOV003', 'Trim preventivo', 3, 'Leggera ulcera soleare', 'Silicone protettivo', 35, 45.0, 'Monitorare evoluzione ulcera', datetime('now', '+45 days'))
-        ''')
-    
-    # Dati di esempio per aziende
-    c.execute("SELECT COUNT(*) FROM aziende")
-    if c.fetchone()[0] == 0:
-        c.execute('''
-            INSERT INTO aziende (nome, tipo, telefono, email, indirizzo, capienza, specializzazione, data_inserimento, note)
-            VALUES 
-            ('Az. Agricola Rossi', 'Allevamento da latte', '+39 0123 456789', 'rossi@email.com', 'Via Roma 123, Torino (TO)', 120, 'Frisona, alta produzione', datetime('now'), 'Clienti da 5 anni, molto professionali'),
-            ('Az. Agricola Bianchi', 'Allevamento misto', '+39 0123 456788', 'bianchi@email.com', 'Via Milano 45, Cuneo (CN)', 80, 'Bruna Alpina, biologico', datetime('now'), 'Nuovi clienti, attenti al benessere animale'),
-            ('Centro Zootecnico Verde', 'Centro servizi', '+39 0123 456777', 'info@verde.com', 'Via Verdi 67, Asti (AT)', 200, 'Multi-razza, consulenza', datetime('now'), 'Grande azienda, richiedono sconti quantità')
+            ('BOV001', 'Margherita', 'Az. Agricola Rossi', 'Frisona', 4, 'Lattazione', datetime('now'), 'Bovina tranquilla'),
+            ('BOV002', 'Stella', 'Az. Agricola Bianchi', 'Bruna Alpina', 5, 'Asciutta', datetime('now'), 'Attenzione zoccoli posteriori')
         ''')
     
     conn.commit()
     conn.close()
-    return "Database bovini inizializzato!"
 
-# FUNZIONI BOVINI
-def aggiungi_bovino(id, nome, azienda, razza, eta, stadio_lattazione, note):
+# Inizializza DB
+init_database()
+
+# FUNZIONI DATABASE SEMPLIFICATE
+def aggiungi_bovino(id, nome, azienda, razza, eta, stato_fisiologico, note):
     try:
         if not id or not nome:
-            return "❌ ID e Nome sono obbligatori!"
+            return "❌ Inserisci ID e Nome"
         
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
@@ -105,534 +84,346 @@ def aggiungi_bovino(id, nome, azienda, razza, eta, stadio_lattazione, note):
         c.execute("SELECT id FROM bovini WHERE id = ?", (id,))
         if c.fetchone():
             conn.close()
-            return "❌ ID già esistente! Usa un ID univoco."
+            return "❌ ID già usato"
         
-        data_inserimento = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        data_inserimento = datetime.now().strftime("%d/%m/%Y %H:%M")
         
         c.execute('''
-            INSERT INTO bovini (id, nome, azienda, razza, eta, stadio_lattazione, data_inserimento, note)
+            INSERT INTO bovini (id, nome, azienda, razza, eta, stato_fisiologico, data_inserimento, note)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (id, nome, azienda, razza, eta, stadio_lattazione, data_inserimento, note))
+        ''', (id, nome, azienda, razza, eta, stato_fisiologico, data_inserimento, note))
         
         conn.commit()
         conn.close()
-        return f"✅ Bovino '{nome}' aggiunto con successo!"
+        return f"✅ {nome} aggiunto!"
     except Exception as e:
         return f"❌ Errore: {str(e)}"
 
 def carica_bovini():
     try:
         conn = sqlite3.connect(DB_PATH)
-        df = pd.read_sql_query("SELECT id, nome, azienda, razza, eta, stadio_lattazione FROM bovini ORDER BY nome", conn)
+        df = pd.read_sql_query("SELECT id, nome, azienda, razza, eta, stato_fisiologico FROM bovini ORDER BY nome", conn)
         conn.close()
-        return df if not df.empty else pd.DataFrame({"id": [], "nome": [], "azienda": [], "razza": [], "eta": [], "stadio_lattazione": []})
-    except Exception as e:
-        return pd.DataFrame({"id": [], "nome": [], "azienda": [], "razza": [], "eta": [], "stadio_lattazione": []})
+        return df
+    except:
+        return pd.DataFrame()
 
-def cerca_bovini(testo_ricerca):
-    try:
-        if not testo_ricerca.strip():
-            return carica_bovini()
-            
-        conn = sqlite3.connect(DB_PATH)
-        query = """
-        SELECT id, nome, azienda, razza, eta, stadio_lattazione 
-        FROM bovini 
-        WHERE id LIKE ? OR nome LIKE ? OR azienda LIKE ? OR razza LIKE ?
-        ORDER BY nome
-        """
-        parametro = f'%{testo_ricerca}%'
-        df = pd.read_sql_query(query, conn, params=[parametro, parametro, parametro, parametro])
-        conn.close()
-        return df if not df.empty else pd.DataFrame({"id": [], "nome": [], "azienda": [], "razza": [], "eta": [], "stadio_lattazione": []})
-    except Exception as e:
-        return pd.DataFrame({"id": [], "nome": [], "azienda": [], "razza": [], "eta": [], "stadio_lattazione": []})
-
-# FUNZIONI TRATTAMENTI BOVINI
 def carica_lista_bovini():
-    """Carica la lista dei bovini per i dropdown"""
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute("SELECT id, nome FROM bovini ORDER BY nome")
         bovini = c.fetchall()
         conn.close()
-        return [f"{bovino[0]} - {bovino[1]}" for bovino in bovini] if bovini else []
+        return [(f"{bovino[0]} - {bovino[1]}", bovino[0]) for bovino in bovini]
     except:
         return []
 
-def carica_lista_aziende():
-    """Carica la lista delle aziende per i dropdown"""
+def aggiungi_trattamento(bovino_id, tipo_attivo, sottotipo_trattamento, 
+                        zoccolo_ad, zoccolo_as, zoccolo_pd, zoccolo_ps,
+                        materiali, durata, costo, note, prossimo_controllo):
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute("SELECT nome FROM aziende ORDER BY nome")
-        aziende = c.fetchall()
-        conn.close()
-        return [azienda[0] for azienda in aziende] if aziende else []
-    except:
-        return []
-
-def aggiungi_trattamento(bovino_selezionato, tipo_trattamento, condizione_zoccolo, lesioni_riscontrate, materiali, durata, costo, note_trattamento, prossimo_controllo):
-    try:
-        if not bovino_selezionato:
-            return "❌ Seleziona un bovino!", None
         
-        bovino_id = bovino_selezionato.split(" - ")[0]
-        
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        
-        data_trattamento = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        data_trattamento = datetime.now().strftime("%d/%m/%Y %H:%M")
         
         c.execute('''
-            INSERT INTO trattamenti (data, bovino_id, tipo_trattamento, condizione_zoccolo, lesioni_riscontrate, materiali, durata_minuti, costo, note, prossimo_controllo)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (data_trattamento, bovino_id, tipo_trattamento, condizione_zoccolo, lesioni_riscontrate, materiali, durata, costo, note_trattamento, prossimo_controllo))
+            INSERT INTO trattamenti (
+                data, bovino_id, tipo_attivo, sottotipo_trattamento,
+                zoccolo_ad, zoccolo_as, zoccolo_pd, zoccolo_ps,
+                materiali, durata_minuti, costo, note, prossimo_controllo
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (data_trattamento, bovino_id, tipo_attivo, sottotipo_trattamento,
+              zoccolo_ad, zoccolo_as, zoccolo_pd, zoccolo_ps,
+              materiali, durata, costo, note, prossimo_controllo))
         
         conn.commit()
         conn.close()
-        return f"✅ Trattamento registrato per {bovino_selezionato}!", None
+        return True, "✅ Trattamento salvato!"
     except Exception as e:
-        return f"❌ Errore: {str(e)}", None
+        return False, f"❌ Errore: {str(e)}"
 
 def carica_trattamenti():
-    """Carica tutti i trattamenti per la visualizzazione"""
     try:
         conn = sqlite3.connect(DB_PATH)
         query = """
-        SELECT t.id, t.data, b.nome as bovino, t.tipo_trattamento, t.condizione_zoccolo, 
-               t.lesioni_riscontrate, t.materiali, t.durata_minuti, t.costo, t.note, t.prossimo_controllo
+        SELECT t.data, b.nome as bovino, t.tipo_attivo, t.sottotipo_trattamento,
+               t.zoccolo_ad, t.zoccolo_as, t.zoccolo_pd, t.zoccolo_ps,
+               t.costo, t.prossimo_controllo
         FROM trattamenti t
         JOIN bovini b ON t.bovino_id = b.id
         ORDER BY t.data DESC
-        LIMIT 50
+        LIMIT 20
         """
         df = pd.read_sql_query(query, conn)
         conn.close()
-        
-        if not df.empty:
-            df['data'] = pd.to_datetime(df['data']).dt.strftime('%d/%m/%Y %H:%M')
-            df['prossimo_controllo'] = pd.to_datetime(df['prossimo_controllo']).dt.strftime('%d/%m/%Y')
-            return df
-        else:
-            return pd.DataFrame({
-                "id": [], "data": [], "bovino": [], "tipo_trattamento": [], "condizione_zoccolo": [],
-                "lesioni_riscontrate": [], "materiali": [], "durata_minuti": [], "costo": [], "note": [], "prossimo_controllo": []
-            })
-    except Exception as e:
-        return pd.DataFrame({
-            "id": [], "data": [], "bovino": [], "tipo_trattamento": [], "condizione_zoccolo": [],
-            "lesioni_riscontrate": [], "materiali": [], "durata_minuti": [], "costo": [], "note": [], "prossimo_controllo": []
-        })
+        return df
+    except:
+        return pd.DataFrame()
 
-# FUNZIONI AZIENDE
-def aggiungi_azienda(nome, tipo, telefono, email, indirizzo, capienza, specializzazione, note):
-    try:
-        if not nome:
-            return "❌ Nome azienda obbligatorio!"
-        
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        
-        data_inserimento = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        c.execute('''
-            INSERT INTO aziende (nome, tipo, telefono, email, indirizzo, capienza, specializzazione, data_inserimento, note)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (nome, tipo, telefono, email, indirizzo, capienza, specializzazione, data_inserimento, note))
-        
-        conn.commit()
-        conn.close()
-        return f"✅ Azienda '{nome}' aggiunta con successo!"
-    except Exception as e:
-        return f"❌ Errore: {str(e)}"
-
-def carica_aziende():
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        df = pd.read_sql_query("SELECT nome, tipo, telefono, email, indirizzo, capienza, specializzazione FROM aziende ORDER BY nome", conn)
-        conn.close()
-        return df if not df.empty else pd.DataFrame({"nome": [], "tipo": [], "telefono": [], "email": [], "indirizzo": [], "capienza": [], "specializzazione": []})
-    except Exception as e:
-        return pd.DataFrame({"nome": [], "tipo": [], "telefono": [], "email": [], "indirizzo": [], "capienza": [], "specializzazione": []})
-
-def cerca_aziende(testo_ricerca):
-    try:
-        if not testo_ricerca.strip():
-            return carica_aziende()
-            
-        conn = sqlite3.connect(DB_PATH)
-        query = """
-        SELECT nome, tipo, telefono, email, indirizzo, capienza, specializzazione 
-        FROM aziende 
-        WHERE nome LIKE ? OR tipo LIKE ? OR indirizzo LIKE ? OR specializzazione LIKE ?
-        ORDER BY nome
-        """
-        parametro = f'%{testo_ricerca}%'
-        df = pd.read_sql_query(query, conn, params=[parametro, parametro, parametro, parametro])
-        conn.close()
-        return df if not df.empty else pd.DataFrame({"nome": [], "tipo": [], "telefono": [], "email": [], "indirizzo": [], "capienza": [], "specializzazione": []})
-    except Exception as e:
-        return pd.DataFrame({"nome": [], "tipo": [], "telefono": [], "email": [], "indirizzo": [], "capienza": [], "specializzazione": []})
-
-# INTERFACCIA PRINCIPALE PER BOVINI
-with gr.Blocks(
-    theme=gr.themes.Soft(
-        primary_hue="orange",
-        secondary_hue="green"
-    ),
-    title="Il Maniscalco - Gestione Podologia Bovina",
-    css="""
-    .header { 
-        text-align: center; 
-        padding: 20px; 
-        background: linear-gradient(135deg, #8B4513 0%, #2E8B57 100%);
-        color: white;
+# DIAGRAMMA ZOCCOLI VISIVO SEMPLICE
+def mostra_diagramma_zoccoli(ad_val="", as_val="", pd_val="", ps_val=""):
+    """Diagramma visivo semplice con emoji"""
+    st.markdown("""
+    <style>
+    .zoccolo-box {
+        background: #f8f9fa;
+        border: 2px solid #8B4513;
         border-radius: 10px;
-        margin-bottom: 20px;
+        padding: 10px;
+        margin: 5px;
+        text-align: center;
+        min-height: 80px;
     }
-    .stat-card { 
-        background: white; 
-        padding: 15px; 
-        border-radius: 10px; 
-        border-left: 4px solid #8B4513;
-        margin: 10px 0;
+    .zoccolo-label {
+        font-weight: bold;
+        color: #8B4513;
+        font-size: 14px;
     }
-    """
-) as app:
+    .zoccolo-value {
+        font-size: 12px;
+        color: #2E8B57;
+        min-height: 40px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
-    init_database()
+    # Layout a forma di bovino
+    col1, col2, col3 = st.columns([1, 2, 1])
     
-    # Header
-    with gr.Column(elem_classes="header"):
-        gr.Markdown("# 🐄 Il Maniscalco")
-        gr.Markdown("### Gestione Professionale per Maniscalchi e Professionisti della podologia bovina!")
+    with col1:
+        st.markdown("**ANTERIORI**")
+        
+    with col2:
+        # Zoccoli anteriori
+        col_ad, col_as = st.columns(2)
+        with col_ad:
+            st.markdown(f'''
+            <div class="zoccolo-box">
+                <div class="zoccolo-label">🦶 ANTERIORE DESTRO</div>
+                <div class="zoccolo-value">{ad_val if ad_val else "Nessun trattamento"}</div>
+            </div>
+            ''', unsafe_allow_html=True)
+        
+        with col_as:
+            st.markdown(f'''
+            <div class="zoccolo-box">
+                <div class="zoccolo-label">🦶 ANTERIORE SINISTRO</div>
+                <div class="zoccolo-value">{as_val if as_val else "Nessun trattamento"}</div>
+            </div>
+            ''', unsafe_allow_html=True)
+        
+        # Corpo bovino (semplice)
+        st.markdown("<div style='text-align: center; margin: 10px 0;'>🐄</div>", unsafe_allow_html=True)
+        
+        # Zoccoli posteriori
+        col_pd, col_ps = st.columns(2)
+        with col_pd:
+            st.markdown(f'''
+            <div class="zoccolo-box">
+                <div class="zoccolo-label">🦶 POSTERIORE DESTRO</div>
+                <div class="zoccolo-value">{pd_val if pd_val else "Nessun trattamento"}</div>
+            </div>
+            ''', unsafe_allow_html=True)
+        
+        with col_ps:
+            st.markdown(f'''
+            <div class="zoccolo-box">
+                <div class="zoccolo-label">🦶 POSTERIORE SINISTRO</div>
+                <div class="zoccolo-value">{ps_val if ps_val else "Nessun trattamento"}</div>
+            </div>
+            ''', unsafe_allow_html=True)
     
-    with gr.Tab("🏠 Dashboard"):
-        gr.Markdown("## Panoramica Attività Bovini")
-        
-        with gr.Row():
-            with gr.Column(scale=1):
-                with gr.Column(elem_classes="stat-card"):
-                    gr.Markdown("### 📊 Statistiche")
-                    totale_bovini = gr.Textbox(label="Bovini registrati", value="Caricamento...", interactive=False)
-                    trattamenti_mese = gr.Textbox(label="Trattamenti (30 giorni)", value="Caricamento...", interactive=False)
-                    totale_aziende = gr.Textbox(label="Aziende clienti", value="Caricamento...", interactive=False)
-            
-            with gr.Column(scale=2):
-                gr.Markdown("### 🎯 Azioni Rapide")
-                with gr.Row():
-                    btn_agg_bovino = gr.Button("➕ Nuovo Bovino")
-                    btn_agg_trattamento = gr.Button("🔧 Nuovo Trattamento")
-                    btn_agg_azienda = gr.Button("🏢 Nuova Azienda")
-                
-                gr.Markdown("### 📝 Situazione Zoccoli")
-                situazione_html = gr.HTML(value="<div style='color: #666;'>Caricamento situazione zoccoli...</div>")
+    with col3:
+        st.markdown("**POSTERIORI**")
 
-    with gr.Tab("🐄 Archivio Bovini"):
-        gr.Markdown("## Gestione Archivio Bovini")
-        
-        with gr.Row():
-            with gr.Column(scale=1):
-                gr.Markdown("### Aggiungi Nuovo Bovino")
-                bovino_id = gr.Textbox(label="ID Bovino *", placeholder="Es: BOV001")
-                nome_bovino = gr.Textbox(label="Nome *", placeholder="Nome del bovino")
-                azienda = gr.Dropdown(
-                    label="Azienda *",
-                    choices=carica_lista_aziende(),
-                    allow_custom_value=True
-                )
-                
-                with gr.Row():
-                    razza = gr.Dropdown(
-                        choices=["Frisona", "Bruna Alpina", "Pezzata Rossa", "Jersey", "Simmental", "Charolaise", "Altro"],
-                        label="Razza",
-                        value="Frisona"
-                    )
-                    eta = gr.Number(label="Età (anni)", precision=0, minimum=0, maximum=15)
-                
-                stadio_lattazione = gr.Dropdown(
-                    choices=["Asciutta", "Inizio lattazione", "Picco lattazione", "Fine lattazione", "Vitella"],
-                    label="Stadio Lattazione",
-                    value="Picco lattazione"
-                )
-                
-                note_bovino = gr.Textbox(label="Note", lines=2, placeholder="Note comportamentali, problemi zoccoli, storia clinica...")
-                
-                btn_salva_bovino = gr.Button("💾 Salva Bovino", variant="primary")
-                output_msg = gr.Textbox(label="Stato", interactive=False)
-            
-            with gr.Column(scale=1):
-                gr.Markdown("### Bovini Registrati")
-                
-                with gr.Row():
-                    barra_ricerca = gr.Textbox(
-                        placeholder="🔍 Cerca per ID, nome, azienda...",
-                        show_label=False
-                    )
-                    btn_carica_bovini = gr.Button("🔄 Aggiorna")
-                
-                tabella_bovini = gr.Dataframe(
-                    headers=["ID", "Nome", "Azienda", "Razza", "Età", "Stadio Lattazione"],
-                    interactive=False
-                )
+# INTERFACCIA PRINCIPALE SEMPLIFICATA
+def main():
+    # Header semplice
+    st.title("🐄 Il Maniscalco")
+    st.markdown("**Gestione trattamenti podologici bovini**")
+    
+    # Menu semplice
+    menu = st.sidebar.radio(
+        "MENU PRINCIPALE",
+        ["🏠 Dashboard", "🐄 Bovini", "🔧 Trattamenti", "📋 Storico"]
+    )
+    
+    if menu == "🏠 Dashboard":
+        show_dashboard()
+    elif menu == "🐄 Bovini":
+        show_bovini()
+    elif menu == "🔧 Trattamenti":
+        show_trattamenti()
+    elif menu == "📋 Storico":
+        show_storico()
 
-    with gr.Tab("🔧 Trattamenti Zoccoli"):
-        gr.Markdown("## Registro Trattamenti Podologici")
-        
-        with gr.Row():
-            with gr.Column(scale=1):
-                gr.Markdown("### Nuovo Trattamento")
-                
-                bovino_selezionato = gr.Dropdown(
-                    label="Seleziona Bovino *",
-                    choices=carica_lista_bovini(),
-                    interactive=True
-                )
-                
-                tipo_trattamento = gr.Dropdown(
-                    choices=["Trim correttivo", "Trim preventivo", "Trattamento dermatite", 
-                            "Cura ulcera", "Applicazione solea", "Controllo routine", "Altro"],
-                    label="Tipo di Trattamento *",
-                    value="Trim preventivo"
-                )
-                
-                condizione_zoccolo = gr.Slider(
-                    minimum=1, maximum=5, value=3, step=1,
-                    label="Condizione Zoccolo (1=pessima, 5=ottima)",
-                    info="Valutazione generale dello stato zoccolo"
-                )
-                
-                lesioni_riscontrate = gr.Dropdown(
-                    choices=["Nessuna", "Dermatite digitale", "Ulcera soleare", "Fessurazione", 
-                            "Ematoma", "Ascesso", "Laminite", "Multiple"],
-                    label="Lesioni Riscotrate",
-                    value="Nessuna"
-                )
-                
-                materiali = gr.Textbox(
-                    label="Materiali Utilizzati",
-                    placeholder="Es: Tosa zoccoli, lima, disinfettante, bendaggio, silicone...",
-                    lines=2
-                )
-                
-                with gr.Row():
-                    durata = gr.Number(label="Durata (minuti)", minimum=10, maximum=120, value=30)
-                    costo = gr.Number(label="Costo (€)", minimum=0, maximum=200, value=40)
-                
-                note_trattamento = gr.Textbox(
-                    label="Note Trattamento",
-                    placeholder="Descrizione intervento, problemi riscontrati, consigli gestionali...",
-                    lines=3
-                )
-                
-                prossimo_controllo = gr.Textbox(
-                    label="Prossimo Controllo (GG/MM/AAAA)",
-                    placeholder="Es: 15/12/2024",
-                    value=(datetime.now() + timedelta(days=45)).strftime("%d/%m/%Y")
-                )
-                
-                btn_salva_trattamento = gr.Button("💾 Registra Trattamento", variant="primary")
-                output_trattamento = gr.Textbox(label="Stato", interactive=False)
-            
-            with gr.Column(scale=1):
-                gr.Markdown("### Storico Trattamenti")
-                btn_carica_trattamenti = gr.Button("🔄 Aggiorna Storico")
-                storico_trattamenti = gr.Dataframe(
-                    label="Ultimi Trattamenti",
-                    headers=["Data", "Bovino", "Tipo", "Cond.Zoccolo", "Lesioni", "Materiali", "Durata", "Costo", "Prossimo Controllo"],
-                    interactive=False
-                )
+def show_dashboard():
+    st.header("📊 Riepilogo")
+    
+    bovini = carica_bovini()
+    trattamenti = carica_trattamenti()
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Bovini registrati", len(bovini))
+    
+    with col2:
+        st.metric("Trattamenti totali", len(trattamenti))
+    
+    with col3:
+        oggi = datetime.now().strftime("%d/%m/%Y")
+        trattamenti_oggi = len([t for t in trattamenti.values if t[0].startswith(oggi)])
+        st.metric("Trattamenti oggi", trattamenti_oggi)
+    
+    # Prossimi controlli
+    st.subheader("🔄 Prossimi controlli")
+    if not trattamenti.empty:
+        prossimi = trattamenti.head(3)[['bovino', 'prossimo_controllo']]
+        for _, row in prossimi.iterrows():
+            st.write(f"• **{row['bovino']}** - {row['prossimo_controllo']}")
+    else:
+        st.info("Nessun controllo programmato")
 
-    with gr.Tab("🏢 Aziende Zootecniche"):
-        gr.Markdown("## Database Aziende Clienti")
-        
-        with gr.Row():
-            with gr.Column(scale=1):
-                gr.Markdown("### Nuova Azienda")
-                
-                nome_azienda = gr.Textbox(label="Nome Azienda *", placeholder="Es: Az. Agricola Rossi")
-                tipo_azienda = gr.Dropdown(
-                    choices=["Allevamento da latte", "Allevamento misto", "Allevamento da carne", "Centro servizi", "Altro"],
-                    label="Tipo Azienda",
-                    value="Allevamento da latte"
-                )
-                
-                telefono = gr.Textbox(label="Telefono", placeholder="+39 0123 456789")
-                email = gr.Textbox(label="Email", placeholder="azienda@email.com")
-                indirizzo = gr.Textbox(label="Indirizzo", placeholder="Via Roma 123, Città (PR)", lines=2)
-                
-                capienza = gr.Number(label="Capienza (numero bovini)", minimum=0, maximum=1000, value=100)
-                specializzazione = gr.Textbox(label="Specializzazione", placeholder="Es: Frisona, alta produzione, biologico...")
-                
-                note_azienda = gr.Textbox(label="Note", lines=2, placeholder="Note commerciali, rapporti, particolarità...")
-                
-                btn_salva_azienda = gr.Button("💾 Salva Azienda", variant="primary")
-                output_azienda = gr.Textbox(label="Stato", interactive=False)
+def show_bovini():
+    st.header("🐄 Gestione Bovini")
+    
+    # Form nuovo bovino
+    with st.expander("➕ AGGIUNGI NUOVO BOVINO", expanded=True):
+        with st.form("nuovo_bovino"):
+            col1, col2 = st.columns(2)
             
-            with gr.Column(scale=1):
-                gr.Markdown("### Aziende Registrate")
-                
-                with gr.Row():
-                    ricerca_aziende = gr.Textbox(
-                        placeholder="🔍 Cerca per nome, tipo, specializzazione...",
-                        show_label=False
-                    )
-                    btn_carica_aziende = gr.Button("🔄 Aggiorna")
-                
-                tabella_aziende = gr.Dataframe(
-                    headers=["Nome", "Tipo", "Telefono", "Email", "Indirizzo", "Capienza", "Specializzazione"],
-                    interactive=False
-                )
+            with col1:
+                bovino_id = st.text_input("📋 ID BOVINO *", help="Es: BOV001")
+                nome = st.text_input("🐮 NOME *", help="Es: Margherita")
+                azienda = st.text_input("🏢 AZIENDA", help="Es: Az. Agricola Rossi")
+            
+            with col2:
+                razza = st.selectbox("🎯 RAZZA", ["Frisona", "Bruna", "Pezzata Rossa", "Jersey", "Altro"])
+                eta = st.number_input("📅 ETÀ (anni)", min_value=0, max_value=20, value=4)
+                stato = st.selectbox("🔄 STATO FISIOLOGICO *", ["Lattazione", "Asciutta"])
+            
+            note = st.text_area("📝 NOTE", placeholder="Note importanti...")
+            
+            if st.form_submit_button("💾 SALVA BOVINO", use_container_width=True):
+                if bovino_id and nome:
+                    risultato = aggiungi_bovino(bovino_id, nome, azienda, razza, eta, stato, note)
+                    st.success(risultato)
+                else:
+                    st.error("⚠️ Inserisci ID e Nome")
+    
+    # Lista bovini
+    st.subheader("📋 BOVINI REGISTRATI")
+    bovini = carica_bovini()
+    if not bovini.empty:
+        st.dataframe(bovini, use_container_width=True)
+    else:
+        st.info("📝 Nessun bovino registrato")
 
-    with gr.Tab("🔍 Ricerca"):
-        gr.Markdown("## Motore di Ricerca Avanzato")
-        ricerca_avanzata = gr.Textbox(
-            label="Cerca in tutto il database",
-            placeholder="Inserisci ID, nome bovino, azienda, tipo trattamento..."
+def show_trattamenti():
+    st.header("🔧 Nuovo Trattamento")
+    
+    bovini_lista = carica_lista_bovini()
+    if not bovini_lista:
+        st.error("❌ Prima registra almeno un bovino")
+        return
+    
+    with st.form("nuovo_trattamento"):
+        # Selezione bovino
+        bovino_selezionato = st.selectbox(
+            "🐮 SELEZIONA BOVINO *",
+            options=[b[0] for b in bovini_lista],
+            format_func=lambda x: x.split(" - ")[1]
         )
-        btn_ricerca_avanzata = gr.Button("🔍 Cerca", variant="primary")
-        risultati_ricerca = gr.Dataframe(
-            label="Risultati Ricerca",
-            headers=["ID", "Nome", "Azienda", "Razza", "Età", "Stadio Lattazione"],
-            interactive=False
-        )
-
-    # EVENT HANDLERS
-    # Bovini
-    btn_salva_bovino.click(
-        fn=aggiungi_bovino,
-        inputs=[bovino_id, nome_bovino, azienda, razza, eta, stadio_lattazione, note_bovino],
-        outputs=output_msg
-    ).then(
-        fn=carica_bovini,
-        outputs=tabella_bovini
-    ).then(
-        fn=carica_lista_bovini,
-        outputs=bovino_selezionato
-    )
-    
-    btn_carica_bovini.click(
-        fn=carica_bovini,
-        outputs=tabella_bovini
-    )
-    
-    barra_ricerca.change(
-        fn=cerca_bovini,
-        inputs=barra_ricerca,
-        outputs=tabella_bovini
-    )
-    
-    # Trattamenti
-    btn_salva_trattamento.click(
-        fn=aggiungi_trattamento,
-        inputs=[bovino_selezionato, tipo_trattamento, condizione_zoccolo, lesioni_riscontrate, materiali, durata, costo, note_trattamento, prossimo_controllo],
-        outputs=[output_trattamento, bovino_selezionato]
-    ).then(
-        fn=carica_trattamenti,
-        outputs=storico_trattamenti
-    )
-    
-    btn_carica_trattamenti.click(
-        fn=carica_trattamenti,
-        outputs=storico_trattamenti
-    )
-    
-    # Aziende
-    btn_salva_azienda.click(
-        fn=aggiungi_azienda,
-        inputs=[nome_azienda, tipo_azienda, telefono, email, indirizzo, capienza, specializzazione, note_azienda],
-        outputs=output_azienda
-    ).then(
-        fn=carica_aziende,
-        outputs=tabella_aziende
-    ).then(
-        fn=carica_lista_aziende,
-        outputs=azienda
-    )
-    
-    btn_carica_aziende.click(
-        fn=carica_aziende,
-        outputs=tabella_aziende
-    )
-    
-    ricerca_aziende.change(
-        fn=cerca_aziende,
-        inputs=ricerca_aziende,
-        outputs=tabella_aziende
-    )
-    
-    # Ricerca
-    btn_ricerca_avanzata.click(
-        fn=cerca_bovini,
-        inputs=ricerca_avanzata,
-        outputs=risultati_ricerca
-    )
-
-    # Carica tutto all'avvio
-    def aggiorna_dashboard():
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
+        bovino_id = [b[1] for b in bovini_lista if b[0] == bovino_selezionato][0]
         
-        c.execute("SELECT COUNT(*) FROM bovini")
-        totale_bovini = c.fetchone()[0]
+        # Tipo trattamento
+        col1, col2 = st.columns(2)
+        with col1:
+            tipo_attivo = st.selectbox("🔧 TIPO ATTIVO *", ["Pareggio", "Rivista"])
+            sottotipo = st.text_input("📋 Sottotipo", placeholder="Es: correttivo, preventivo...")
         
-        c.execute("SELECT COUNT(*) FROM trattamenti WHERE date(data) >= date('now', '-30 days')")
-        trattamenti_mese = c.fetchone()[0]
+        with col2:
+            durata = st.number_input("⏱️ DURATA (minuti)", min_value=5, max_value=180, value=30)
+            costo = st.number_input("💰 COSTO (€)", min_value=0.0, value=40.0)
         
-        c.execute("SELECT COUNT(*) FROM aziende")
-        totale_aziende = c.fetchone()[0]
+        # DIAGRAMMA ZOCCOLI
+        st.subheader("🦶 TRATTAMENTI ZOCCOLI")
+        st.info("Inserisci i trattamenti per ogni zoccolo:")
         
-        # Statistiche condizioni zoccoli
-        c.execute('''
-            SELECT 
-                COUNT(*) as totale,
-                SUM(CASE WHEN condizione_zoccolo <= 2 THEN 1 ELSE 0 END) as critici,
-                SUM(CASE WHEN condizione_zoccolo = 3 THEN 1 ELSE 0 END) as medi,
-                SUM(CASE WHEN condizione_zoccolo >= 4 THEN 1 ELSE 0 END) as buoni
-            FROM trattamenti 
-            WHERE id IN (
-                SELECT MAX(id) FROM trattamenti GROUP BY bovino_id
+        col_ad, col_as, col_pd, col_ps = st.columns(4)
+        
+        with col_ad:
+            zoccolo_ad = st.text_area("**Anteriore Destro**", placeholder="Es: Soletta\nUlcera", height=80)
+        
+        with col_as:
+            zoccolo_as = st.text_area("**Anteriore Sinistro**", placeholder="Es: Fascia\nDermatite", height=80)
+        
+        with col_pd:
+            zoccolo_pd = st.text_area("**Posteriore Destro**", placeholder="Es: Limatura\nNessuna", height=80)
+        
+        with col_ps:
+            zoccolo_ps = st.text_area("**Posteriore Sinistro**", placeholder="Es: Controllo\nNormale", height=80)
+        
+        # Anteprima diagramma
+        st.subheader("👀 ANTEPRIMA TRATTAMENTI")
+        mostra_diagramma_zoccoli(zoccolo_ad, zoccolo_as, zoccolo_pd, zoccolo_ps)
+        
+        # Altri dati
+        materiali = st.text_input("🛠️ MATERIALI USATI", placeholder="Es: Tosa, lime, disinfettante...")
+        note = st.text_area("📝 NOTE TRATTAMENTO")
+        prossimo = st.date_input("📅 PROSSIMO CONTROLLO", value=datetime.now() + timedelta(days=45))
+        
+        if st.form_submit_button("💾 REGISTRA TRATTAMENTO", use_container_width=True):
+            success, messaggio = aggiungi_trattamento(
+                bovino_id, tipo_attivo, sottotipo,
+                zoccolo_ad, zoccolo_as, zoccolo_pd, zoccolo_ps,
+                materiali, durata, costo, note, prossimo.strftime("%d/%m/%Y")
             )
-        ''')
-        stats = c.fetchone()
-        conn.close()
-        
-        situazione_html = f"""
-        <div style='background: #f8f9fa; padding: 15px; border-radius: 8px;'>
-            <div><strong>📊 Situazione Zoccoli:</strong></div>
-            <div>• 🟢 Buoni: {stats[3]}</div>
-            <div>• 🟡 Medi: {stats[2]}</div>
-            <div>• 🔴 Critici: {stats[1]}</div>
-        </div>
-        """
-        
-        return (
-            f"🐄 {totale_bovini} bovini", 
-            f"🔧 {trattamenti_mese} trattamenti",
-            f"🏢 {totale_aziende} aziende",
-            situazione_html
-        )
-    
-    app.load(
-        fn=aggiorna_dashboard,
-        outputs=[totale_bovini, trattamenti_mese, totale_aziende, situazione_html]
-    ).then(
-        fn=carica_bovini,
-        outputs=tabella_bovini
-    ).then(
-        fn=carica_trattamenti,
-        outputs=storico_trattamenti
-    ).then(
-        fn=carica_lista_bovini,
-        outputs=bovino_selezionato
-    ).then(
-        fn=carica_aziende,
-        outputs=tabella_aziende
-    ).then(
-        fn=carica_lista_aziende,
-        outputs=azienda
-    )
+            if success:
+                st.success(messaggio)
+                st.balloons()
+            else:
+                st.error(messaggio)
 
-app.launch(server_name="0.0.0.0", server_port=7860, share=False)
+def show_storico():
+    st.header("📋 Storico Trattamenti")
+    
+    trattamenti = carica_trattamenti()
+    if not trattamenti.empty:
+        # Filtri semplici
+        col1, col2 = st.columns(2)
+        with col1:
+            cerca_bovino = st.text_input("🔍 Cerca bovino")
+        with col2:
+            cerca_tipo = st.selectbox("🔧 Filtra per tipo", ["Tutti"] + list(trattamenti['tipo_attivo'].unique()))
+        
+        # Applica filtri
+        trattamenti_filtrati = trattamenti
+        if cerca_bovino:
+            trattamenti_filtrati = trattamenti_filtrati[trattamenti_filtrati['bovino'].str.contains(cerca_bovino, case=False)]
+        if cerca_tipo != "Tutti":
+            trattamenti_filtrati = trattamenti_filtrati[trattamenti_filtrati['tipo_attivo'] == cerca_tipo]
+        
+        st.dataframe(trattamenti_filtrati, use_container_width=True)
+        
+        # Dettaglio trattamento selezionato
+        if len(trattamenti_filtrati) > 0:
+            st.subheader("👀 DETTAGLIO TRATTAMENTO")
+            idx = st.selectbox("Seleziona trattamento", range(len(trattamenti_filtrati)), 
+                             format_func=lambda x: f"{trattamenti_filtrati.iloc[x]['bovino']} - {trattamenti_filtrati.iloc[x]['data']}")
+            
+            trattamento = trattamenti_filtrati.iloc[idx]
+            mostra_diagramma_zoccoli(
+                trattamento['zoccolo_ad'], 
+                trattamento['zoccolo_as'], 
+                trattamento['zoccolo_pd'], 
+                trattamento['zoccolo_ps']
+            )
+    else:
+        st.info("📝 Nessun trattamento registrato")
+
+if __name__ == "__main__":
+    main()
