@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 # Configurazione pagina
 st.set_page_config(
     page_title="Il Maniscalco - Podologia Bovina",
-    page_icon="🐄",  # Questo è l'emoji, puoi mettere una tua immagine
+    page_icon="logo.png"
     layout="wide",
     initial_sidebar_state="expanded"
 )
