@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 # Configurazione pagina
 st.set_page_config(
     page_title="Il Maniscalco - Podologia Bovina",
-    page_icon="logoicona.png"
+    page_icon="logo icona.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
