@@ -3,13 +3,38 @@ import sqlite3
 import pandas as pd
 from datetime import datetime, timedelta
 
+# 🔐 PROTECTION IMMEDIATA - MODIFICA QUESTA PASSWORD
+PASSWORD = "maniscalco2024"  # Cambia con una password tua!
+
+# Check password
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.title("🔐 Il Maniscalco - Accesso Protetto")
+    password_input = st.text_input("Inserisci la password di accesso:", type="password")
+    
+    if st.button("Accedi"):
+        if password_input == PASSWORD:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("❌ Password errata!")
+    st.stop()
+    
 # Configurazione pagina
 st.set_page_config(
     page_title="Il Maniscalco - Podologia Bovina",
-    page_icon="logoicona.png",
+    page_icon="🐄",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+DB_PATH = "database.db"
+
+def init_database():
+    """Inizializza il database"""
+    
 st.markdown("""
 <head>
     <meta property="og:image" content="https://ilmaniscalco.onrender.com/imgapp.png">
